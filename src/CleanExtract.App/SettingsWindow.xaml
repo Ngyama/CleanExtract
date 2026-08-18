@@ -1,0 +1,94 @@
+<Window x:Class="CleanExtract.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="设置"
+        Width="480"
+        Height="640"
+        MinWidth="440"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgBrush}">
+    <DockPanel Margin="22">
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="{StaticResource AccentBrush}"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,10" />
+            <Button Content="保存"
+                    Style="{StaticResource PrimaryButton}"
+                    Command="{Binding SaveCommand}" />
+            <Grid Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <Button Content="恢复默认规则"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding RestoreDefaultsCommand}" />
+                <Button Grid.Column="2"
+                        Content="打开配置文件夹"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding OpenConfigFolderCommand}" />
+            </Grid>
+        </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="解压行为" Style="{StaticResource SectionTitle}" />
+                <CheckBox Content="过滤 macOS 元数据（.DS_Store / __MACOSX）" IsChecked="{Binding FilterMacosMetadata}" Margin="0,0,0,8" />
+                <CheckBox Content="过滤 Thumbs.db" IsChecked="{Binding FilterThumbsDb}" Margin="0,0,0,8" />
+                <CheckBox Content="过滤 desktop.ini" IsChecked="{Binding FilterDesktopIni}" Margin="0,0,0,8" />
+                <CheckBox Content="保留可疑文件（推荐）" IsChecked="{Binding KeepSuspicious}" Margin="0,0,0,8" />
+                <CheckBox Content="检测广告文件名" IsChecked="{Binding EnableAdFilenameDetection}" Margin="0,0,0,8" />
+                <CheckBox Content="检查 .url 目标地址" IsChecked="{Binding EnableUrlInspection}" Margin="0,0,0,8" />
+                <CheckBox Content="检查小型文本内容" IsChecked="{Binding EnableTextInspection}" Margin="0,0,0,8" />
+
+                <TextBlock Text="资源管理器" Style="{StaticResource SectionTitle}" Margin="0,18,0,0" />
+                <TextBlock Text="{Binding ShellStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="10" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Button Content="安装右键菜单" Style="{StaticResource GhostButton}" Command="{Binding InstallShellCommand}" />
+                    <Button Grid.Column="2" Content="移除右键菜单" Style="{StaticResource GhostButton}" Command="{Binding UninstallShellCommand}" />
+                </Grid>
+
+                <TextBlock Text="始终保留的文件名" Style="{StaticResource SectionTitle}" Margin="0,18,0,0" />
+                <TextBlock Text="每行一个。以后遇到同名文件会解压。" Style="{StaticResource Muted}" Margin="0,0,0,6" />
+                <TextBox Text="{Binding AlwaysKeep, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ListBoxEditor}" />
+
+                <TextBlock Text="始终过滤的文件名" Style="{StaticResource SectionTitle}" Margin="0,14,0,0" />
+                <TextBlock Text="每行一个。以后遇到同名文件不会解压。" Style="{StaticResource Muted}" Margin="0,0,0,6" />
+                <TextBox Text="{Binding AlwaysFilter, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ListBoxEditor}" />
+
+                <TextBlock Text="高置信度关键词" Style="{StaticResource SectionTitle}" Margin="0,14,0,0" />
+                <TextBlock Text="命中后更容易被过滤。不要写得太宽，例如不要只用“说明”。" Style="{StaticResource Muted}" Margin="0,0,0,6" />
+                <TextBox Text="{Binding HighPhrases, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ListBoxEditor}" MinHeight="88" />
+
+                <TextBlock Text="中等关键词" Style="{StaticResource SectionTitle}" Margin="0,14,0,0" />
+                <TextBox Text="{Binding MediumPhrases, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ListBoxEditor}" />
+
+                <TextBlock Text="低置信度关键词" Style="{StaticResource SectionTitle}" Margin="0,14,0,0" />
+                <TextBox Text="{Binding LowPhrases, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ListBoxEditor}" />
+
+                <TextBlock Text="文本推广用语" Style="{StaticResource SectionTitle}" Margin="0,14,0,0" />
+                <TextBox Text="{Binding PromoPhrases, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ListBoxEditor}" />
+
+                <TextBlock Text="拦截域名" Style="{StaticResource SectionTitle}" Margin="0,14,0,0" />
+                <TextBlock Text="只有你明确加入的域名才会被当成垃圾站。默认是空的。" Style="{StaticResource Muted}" Margin="0,0,0,6" />
+                <TextBox Text="{Binding BlockedDomains, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ListBoxEditor}" />
+
+                <TextBlock Text="信任域名" Style="{StaticResource SectionTitle}" Margin="0,14,0,0" />
+                <TextBlock Text="文档站、源码托管等。命中后更不容易过滤 .url。" Style="{StaticResource Muted}" Margin="0,0,0,6" />
+                <TextBox Text="{Binding TrustedDomains, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ListBoxEditor}" MinHeight="120" />
+
+                <TextBlock Text="可疑短链域名" Style="{StaticResource SectionTitle}" Margin="0,14,0,0" />
+                <TextBlock Text="只加分，不会单独当成垃圾删除。" Style="{StaticResource Muted}" Margin="0,0,0,6" />
+                <TextBox Text="{Binding SuspiciousDomains, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ListBoxEditor}" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

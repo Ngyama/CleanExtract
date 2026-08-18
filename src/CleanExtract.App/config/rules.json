@@ -1,0 +1,58 @@
+{
+  "trashThreshold": 75,
+  "suspiciousThreshold": 38,
+  "maxInspectBytes": 49152,
+  "filterMacosMetadata": true,
+  "filterThumbsDb": true,
+  "filterDesktopIni": false,
+  "keepSuspicious": true,
+  "enableAdFilenameDetection": true,
+  "enableUrlInspection": true,
+  "enableTextInspection": true,
+  "adPhrasesHigh": [
+    "最新网址",
+    "最新地址",
+    "永久地址",
+    "永久网址",
+    "永久发布",
+    "备用网址",
+    "备用地址",
+    "防失联",
+    "防止失联",
+    "本站地址",
+    "本站网址",
+    "本站最新",
+    "访问本站",
+    "收藏本站",
+    "更多游戏下载"
+  ],
+  "adPhrasesMedium": [
+    "发布页",
+    "更多游戏",
+    "更多资源",
+    "资源下载",
+    "关注公众号",
+    "加入群",
+    "qq群",
+    "微信群"
+  ],
+  "adPhrasesLow": [
+    "游戏下载",
+    "使用说明",
+    "下载说明",
+    "下载地址"
+  ],
+  "promoContentPhrases": [
+    "最新网址",
+    "永久地址",
+    "永久网址",
+    "请收藏",
+    "防止失联",
+    "防失联",
+    "更多资源",
+    "访问本站",
+    "收藏本站",
+    "备用网址",
+    "发布页"
+  ]
+}

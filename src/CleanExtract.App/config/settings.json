@@ -1,0 +1,9 @@
+{
+  "filterMacosMetadata": true,
+  "filterThumbsDb": true,
+  "filterDesktopIni": false,
+  "keepSuspicious": true,
+  "enableAdFilenameDetection": true,
+  "enableUrlInspection": true,
+  "enableTextInspection": true
+}
