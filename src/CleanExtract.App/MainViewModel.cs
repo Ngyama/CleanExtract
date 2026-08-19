@@ -34,6 +34,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _archivePath = string.Empty;
     private string _archiveName = string.Empty;
     private string _archiveMeta = string.Empty;
+    private double _progressPercent;
+    private bool _isProgressIndeterminate = true;
     private string _statusText = string.Empty;
     private string _errorText = string.Empty;
     private string _resultHeadline = string.Empty;
@@ -127,6 +129,30 @@ public sealed class MainViewModel : INotifyPropertyChanged
         get => _statusText;
         private set => Set(ref _statusText, value);
     }
+
+    public double ProgressPercent
+    {
+        get => _progressPercent;
+        private set
+        {
+            if (Set(ref _progressPercent, value))
+                OnPropertyChanged(nameof(ProgressPercentText));
+        }
+    }
+
+    public bool IsProgressIndeterminate
+    {
+        get => _isProgressIndeterminate;
+        private set
+        {
+            if (Set(ref _isProgressIndeterminate, value))
+                OnPropertyChanged(nameof(ShowProgressPercent));
+        }
+    }
+
+    public bool ShowProgressPercent => !IsProgressIndeterminate;
+
+    public string ProgressPercentText => $"{ProgressPercent:0}%";
 
     public string ErrorText
     {
@@ -227,9 +253,29 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _cts = new CancellationTokenSource();
         State = UiState.Running;
         StatusText = "正在分析压缩包...";
+        ProgressPercent = 0;
+        IsProgressIndeterminate = true;
         NotifyState();
 
-        var progress = new Progress<WorkflowProgress>(p => StatusText = p.Message);
+        var progress = new Progress<WorkflowProgress>(p =>
+        {
+            StatusText = p.Message;
+            if (p.Percent is double pct)
+            {
+                IsProgressIndeterminate = false;
+                ProgressPercent = pct;
+            }
+            else if (string.Equals(p.Stage, "extract", StringComparison.Ordinal))
+            {
+                IsProgressIndeterminate = false;
+                ProgressPercent = 0;
+            }
+            else
+            {
+                IsProgressIndeterminate = true;
+                ProgressPercent = 0;
+            }
+        });
         try
         {
             var result = await _workflow.RunAsync(ArchivePath, progress: progress, cancellationToken: _cts.Token)
@@ -269,6 +315,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ArchiveName = string.Empty;
         ArchiveMeta = string.Empty;
         StatusText = string.Empty;
+        ProgressPercent = 0;
+        IsProgressIndeterminate = true;
         ErrorText = string.Empty;
         ResultHeadline = string.Empty;
         ResultDetail = string.Empty;

@@ -1,14 +1,22 @@
 <Window x:Class="CleanExtract.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:CleanExtract"
         Title="设置"
         Width="480"
         Height="640"
         MinWidth="440"
         MinHeight="480"
         WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
         Background="{StaticResource BgBrush}">
-    <DockPanel Margin="22">
+    <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
+        <DockPanel>
+            <local:AppTitleBar DockPanel.Dock="Top"
+                               TitleText="设置"
+                               ShowMinimize="True"
+                               ShowMaximize="True" />
+            <DockPanel Margin="22">
         <StackPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
             <TextBlock Text="{Binding StatusMessage}"
                        Foreground="{StaticResource AccentBrush}"
@@ -90,5 +98,7 @@
                 <TextBox Text="{Binding SuspiciousDomains, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ListBoxEditor}" />
             </StackPanel>
         </ScrollViewer>
-    </DockPanel>
+            </DockPanel>
+        </DockPanel>
+    </Border>
 </Window>

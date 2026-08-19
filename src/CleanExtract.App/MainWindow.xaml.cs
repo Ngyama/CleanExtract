@@ -8,6 +8,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        WindowAppearance.Apply(this);
     }
 
     public MainViewModel? ViewModel { get; set; }

@@ -10,7 +10,7 @@ public sealed class ExplorerIntegrationTests
     public void CommandLine_QuotesExecutableAndPlaceholder()
     {
         var command = ExplorerIntegration.CommandLine(@"C:\Program Files\Clean Extract\CleanExtract.exe");
-        Assert.Equal("\"C:\\Program Files\\Clean Extract\\CleanExtract.exe\" \"%1\"", command);
+        Assert.Equal("\"C:\\Program Files\\Clean Extract\\CleanExtract.exe\" --extract \"%1\"", command);
     }
 
     [Fact]

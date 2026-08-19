@@ -7,6 +7,7 @@ public partial class PasswordWindow : Window
     public PasswordWindow(string archivePath, bool previousWasWrong)
     {
         InitializeComponent();
+        WindowAppearance.Apply(this);
         PromptText.Text = $"压缩包“{System.IO.Path.GetFileName(archivePath)}”已加密，请输入密码。密码不会被保存。";
         if (previousWasWrong)
         {

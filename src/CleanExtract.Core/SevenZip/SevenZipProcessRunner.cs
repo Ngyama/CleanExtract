@@ -159,22 +159,67 @@ internal sealed class SevenZipProcessRunner
         Process process,
         CancellationToken cancellationToken)
     {
-        while (!reader.EndOfStream)
+        var buffer = new char[256];
+        var line = new StringBuilder();
+        var skipLf = false;
+        while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-            if (line is null)
+            var count = await reader.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
+            if (count == 0)
                 break;
-            sink.AppendLine(line);
-            if (!passwordSupplied && IsPasswordPrompt(line))
-            {
-                TryKill(process);
-                throw new PasswordRequiredException();
-            }
 
-            if (progress is not null && SevenZipProgressParser.TryParsePercent(line, out var percent))
-                progress.Report(percent);
+            for (var i = 0; i < count; i++)
+            {
+                var ch = buffer[i];
+                if (skipLf)
+                {
+                    skipLf = false;
+                    if (ch == '\n')
+                        continue;
+                }
+
+                if (ch == '\r')
+                {
+                    skipLf = true;
+                    HandleOutputLine(line, sink, progress, passwordSupplied, process);
+                    continue;
+                }
+
+                if (ch == '\n')
+                {
+                    HandleOutputLine(line, sink, progress, passwordSupplied, process);
+                    continue;
+                }
+
+                line.Append(ch);
+            }
         }
+
+        HandleOutputLine(line, sink, progress, passwordSupplied, process);
+    }
+
+    private static void HandleOutputLine(
+        StringBuilder line,
+        StringBuilder sink,
+        IProgress<double>? progress,
+        bool passwordSupplied,
+        Process process)
+    {
+        var text = line.ToString();
+        line.Clear();
+        sink.AppendLine(text);
+        if (text.Length == 0)
+            return;
+
+        if (!passwordSupplied && IsPasswordPrompt(text))
+        {
+            TryKill(process);
+            throw new PasswordRequiredException();
+        }
+
+        if (progress is not null && SevenZipProgressParser.TryParsePercent(text, out var percent))
+            progress.Report(percent);
     }
 
     private static bool IsPasswordPrompt(string line)

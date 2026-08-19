@@ -12,7 +12,7 @@ namespace CleanExtract;
 
 public partial class App : Application
 {
-    private FileAppLog? _log;
+    private IAppLog? _log;
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
@@ -41,11 +41,22 @@ public partial class App : Application
 
         try
         {
-            _log = new FileAppLog(AppPaths.TodayLogFile, alsoConsole: true);
+            _log = FileAppLog.Create(AppPaths.TodayLogFile, alsoConsole: true);
             _log.Info("Clean Extract starting.");
 
-            if (TryHandleCli(e.Args))
+            var args = StartupArgs.Collect(e.Args);
+            if (TryHandleCli(args))
                 return;
+
+            var archive = StartupArgs.ResolveArchive(args);
+            if (args.Length > 0)
+                _log.Info("Startup arguments: " + string.Join(" ", args.Select(StartupArgs.Redact)));
+            if (archive is not null)
+                _log.Info("Command-line archive: " + archive);
+
+            var exe = Environment.ProcessPath;
+            if (!string.IsNullOrWhiteSpace(exe) && ExplorerIntegration.IsInstalledFor(exe))
+                ExplorerIntegration.Install(exe);
 
             var config = ConfigStore.Load(AppContext.BaseDirectory, AppPaths.UserDataDirectory, _log);
             var backend = new SevenZipBackend(SevenZipLocator.Find(), _log);
@@ -65,11 +76,12 @@ public partial class App : Application
             window.ViewModel = viewModel;
 
             MainWindow = window;
-            window.Show();
-
-            var archive = e.Args.Select(arg => arg.Trim('"')).FirstOrDefault(File.Exists);
             if (archive is not null)
+            {
                 window.Loaded += async (_, _) => await viewModel.OpenAndExtractAsync(archive);
+            }
+
+            window.Show();
         }
         catch (Exception ex)
         {
@@ -122,7 +134,8 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _log?.Info("Clean Extract exiting.");
-        _log?.Dispose();
+        if (_log is IDisposable disposable)
+            disposable.Dispose();
         base.OnExit(e);
     }
 }

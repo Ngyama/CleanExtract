@@ -39,6 +39,10 @@ public sealed class RuleConfig
         "访问本站",
         "收藏本站",
         "更多游戏下载",
+        "tg频道",
+        "telegram频道",
+        "电报频道",
+        "来自tg",
     ];
 
     public List<string> AdPhrasesMedium { get; set; } =
@@ -74,6 +78,8 @@ public sealed class RuleConfig
         "收藏本站",
         "备用网址",
         "发布页",
+        "tg频道",
+        "t.me",
     ];
 
     public List<string> TrustedUrlNames { get; set; } =

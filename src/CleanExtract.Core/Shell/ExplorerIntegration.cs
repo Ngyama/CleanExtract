@@ -17,7 +17,10 @@ public static class ExplorerIntegration
     ];
 
     public static string CommandLine(string executablePath)
-        => $"\"{executablePath}\" \"%1\"";
+        => $"\"{executablePath}\" --extract \"%1\"";
+
+    public static string AppliesToFilter =>
+        string.Join(" OR ", Extensions.Select(static ext => $"System.FileExtension:\"{ext}\""));
 
     public static string? InstalledExecutablePath()
     {
@@ -54,9 +57,10 @@ public static class ExplorerIntegration
 
         var command = CommandLine(executablePath);
         foreach (var extension in Extensions)
-            WriteVerb(AssociationKey(extension), command, executablePath);
+            WriteVerb(AssociationKey(extension), command, executablePath, appliesTo: null);
 
-        WriteVerb(@"Software\Classes\CompressedFolder\shell\" + VerbName, command, executablePath);
+        WriteVerb(@"Software\Classes\CompressedFolder\shell\" + VerbName, command, executablePath, appliesTo: null);
+        WriteVerb(@"Software\Classes\*\shell\" + VerbName, command, executablePath, AppliesToFilter);
         NotifyExplorer();
     }
 
@@ -66,6 +70,7 @@ public static class ExplorerIntegration
             DeleteKey(AssociationKey(extension));
 
         DeleteKey(@"Software\Classes\CompressedFolder\shell\" + VerbName);
+        DeleteKey(@"Software\Classes\*\shell\" + VerbName);
         NotifyExplorer();
     }
 
@@ -75,12 +80,14 @@ public static class ExplorerIntegration
     private static string CommandKey(string extension)
         => AssociationKey(extension) + @"\command";
 
-    private static void WriteVerb(string shellKey, string command, string executablePath)
+    private static void WriteVerb(string shellKey, string command, string executablePath, string? appliesTo)
     {
         using var key = Registry.CurrentUser.CreateSubKey(shellKey);
         key.SetValue(null, DisplayName);
         key.SetValue("MUIVerb", DisplayName);
         key.SetValue("Icon", executablePath);
+        if (!string.IsNullOrWhiteSpace(appliesTo))
+            key.SetValue("AppliesTo", appliesTo);
         using var commandKey = Registry.CurrentUser.CreateSubKey(shellKey + @"\command");
         commandKey.SetValue(null, command);
     }

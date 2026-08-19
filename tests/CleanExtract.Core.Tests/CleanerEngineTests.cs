@@ -29,12 +29,31 @@ public sealed class CleanerEngineTests
         Assert.Equal(Classification.Trash, verdict.Classification);
     }
 
-    [Fact]
-    public void TypicalAdUrl_IsTrash()
+    [Theory]
+    [InlineData("zombie/PC/zombie1/资源来自TG频道@xxx.txt")]
+    [InlineData("zombie/PC/zombie1/资源来自TG频道@xxx.url")]
+    [InlineData("zombie/PC/zombie1/资源来自TG频道@xxx.png")]
+    [InlineData("zombie1/关注TG频道.jpg")]
+    public void NestedTelegramPromo_IsTrash(string path)
     {
-        var verdict = _engine.Classify(Entries.File("★本站最新网址.url", 80));
+        var verdict = _engine.Classify(Entries.File(path, 80));
         Assert.Equal(Classification.Trash, verdict.Classification);
-        Assert.True(verdict.Score >= 75);
+        Assert.Equal("ad.telegram.filename", verdict.MatchedRule);
+        Assert.False(verdict.ShouldExtract(keepSuspicious: true));
+    }
+
+    [Fact]
+    public void NestedClassicAdUrl_IsStillTrash()
+    {
+        var verdict = _engine.Classify(Entries.File("zombie/PC/zombie1/★本站最新网址.url", 80));
+        Assert.Equal(Classification.Trash, verdict.Classification);
+    }
+
+    [Fact]
+    public void NestedGameExe_IsNotAffectedByTelegramRule()
+    {
+        var verdict = _engine.Classify(Entries.File("zombie/PC/zombie1/zombie1.exe", 8_000_000));
+        Assert.Equal(Classification.Clean, verdict.Classification);
     }
 
     [Fact]

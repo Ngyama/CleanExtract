@@ -1,0 +1,27 @@
+<UserControl x:Class="CleanExtract.AppTitleBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Height="40"
+             Background="{StaticResource BgBrush}">
+    <Grid>
+        <TextBlock Text="{Binding TitleText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                   VerticalAlignment="Center"
+                   Margin="16,0,0,0"
+                   FontSize="13"
+                   FontWeight="Medium"
+                   Foreground="{StaticResource TextBrush}" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="—"
+                    Style="{StaticResource CaptionButton}"
+                    Visibility="{Binding ShowMinimize, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
+                    Click="OnMinimize" />
+            <Button Content="☐"
+                    Style="{StaticResource CaptionButton}"
+                    Visibility="{Binding ShowMaximize, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
+                    Click="OnMaximize" />
+            <Button Content="✕"
+                    Style="{StaticResource CaptionCloseButton}"
+                    Click="OnClose" />
+        </StackPanel>
+    </Grid>
+</UserControl>
