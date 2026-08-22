@@ -18,6 +18,7 @@ public sealed class CleanerEngine
             new SystemJunkRule(),
             new AdFilenameRule(),
             new TelegramPromoRule(),
+            new ImageAdRule(),
             new UrlShortcutRule(),
             new TextContentRule(),
             new DomainRule(),

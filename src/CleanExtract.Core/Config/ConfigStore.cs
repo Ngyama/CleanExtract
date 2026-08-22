@@ -52,6 +52,7 @@ public static class ConfigStore
             EnableAdFilenameDetection = rules.EnableAdFilenameDetection,
             EnableUrlInspection = rules.EnableUrlInspection,
             EnableTextInspection = rules.EnableTextInspection,
+            EnableImageAdDetection = rules.EnableImageAdDetection,
             AdPhrasesHigh = rules.AdPhrasesHigh,
             AdPhrasesMedium = rules.AdPhrasesMedium,
             AdPhrasesLow = rules.AdPhrasesLow,
@@ -59,6 +60,10 @@ public static class ConfigStore
             TrustedUrlNames = rules.TrustedUrlNames,
             ReadmeHints = rules.ReadmeHints,
             InspectExtensions = rules.InspectExtensions,
+            ImageExtensions = rules.ImageExtensions,
+            ImageAdPhrasesHigh = rules.ImageAdPhrasesHigh,
+            ImageAdPhrasesMedium = rules.ImageAdPhrasesMedium,
+            ImageProtectedNames = rules.ImageProtectedNames,
         };
         Write(Path.Combine(userDataDirectory, "rules.json"), payload);
     }
@@ -121,6 +126,7 @@ public static class ConfigStore
         if (loaded is null)
             return;
 
+        var present = ReadPropertyNames(path, log);
         target.TrashThreshold = loaded.TrashThreshold;
         target.SuspiciousThreshold = loaded.SuspiciousThreshold;
         target.MaxInspectBytes = loaded.MaxInspectBytes;
@@ -131,6 +137,8 @@ public static class ConfigStore
         target.EnableAdFilenameDetection = loaded.EnableAdFilenameDetection;
         target.EnableUrlInspection = loaded.EnableUrlInspection;
         target.EnableTextInspection = loaded.EnableTextInspection;
+        if (present.Contains("enableImageAdDetection"))
+            target.EnableImageAdDetection = loaded.EnableImageAdDetection;
         CopyList(target.AdPhrasesHigh, loaded.AdPhrasesHigh, replaceLists);
         CopyList(target.AdPhrasesMedium, loaded.AdPhrasesMedium, replaceLists);
         CopyList(target.AdPhrasesLow, loaded.AdPhrasesLow, replaceLists);
@@ -138,6 +146,10 @@ public static class ConfigStore
         CopyList(target.TrustedUrlNames, loaded.TrustedUrlNames, replaceLists);
         CopyList(target.ReadmeHints, loaded.ReadmeHints, replaceLists);
         CopyList(target.InspectExtensions, loaded.InspectExtensions, replaceLists);
+        CopyList(target.ImageExtensions, loaded.ImageExtensions, replaceLists);
+        CopyList(target.ImageAdPhrasesHigh, loaded.ImageAdPhrasesHigh, replaceLists);
+        CopyList(target.ImageAdPhrasesMedium, loaded.ImageAdPhrasesMedium, replaceLists);
+        CopyList(target.ImageProtectedNames, loaded.ImageProtectedNames, replaceLists);
         CopyList(target.BlockedDomains, loaded.BlockedDomains, replaceLists);
         CopyList(target.TrustedDomains, loaded.TrustedDomains, replaceLists);
         CopyList(target.SuspiciousDomains, loaded.SuspiciousDomains, replaceLists);
@@ -169,6 +181,8 @@ public static class ConfigStore
         var loaded = TryRead<AppSettings>(path, log);
         if (loaded is null)
             return;
+
+        var present = ReadPropertyNames(path, log);
         target.FilterMacosMetadata = loaded.FilterMacosMetadata;
         target.FilterThumbsDb = loaded.FilterThumbsDb;
         target.FilterDesktopIni = loaded.FilterDesktopIni;
@@ -176,6 +190,31 @@ public static class ConfigStore
         target.EnableAdFilenameDetection = loaded.EnableAdFilenameDetection;
         target.EnableUrlInspection = loaded.EnableUrlInspection;
         target.EnableTextInspection = loaded.EnableTextInspection;
+        if (present.Contains("enableImageAdDetection"))
+            target.EnableImageAdDetection = loaded.EnableImageAdDetection;
+        if (present.Contains("checkForUpdates"))
+            target.CheckForUpdates = loaded.CheckForUpdates;
+        if (present.Contains("updateFeedUrl") && !string.IsNullOrWhiteSpace(loaded.UpdateFeedUrl))
+            target.UpdateFeedUrl = loaded.UpdateFeedUrl.Trim();
+    }
+
+    private static HashSet<string> ReadPropertyNames(string path, IAppLog log)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                return names;
+            foreach (var property in document.RootElement.EnumerateObject())
+                names.Add(property.Name);
+        }
+        catch (Exception ex)
+        {
+            log.Warn($"Failed to inspect config keys {path}: {ex.Message}");
+        }
+
+        return names;
     }
 
     private static T? TryRead<T>(string path, IAppLog log) where T : class

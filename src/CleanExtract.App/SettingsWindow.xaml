@@ -51,6 +51,16 @@
                 <CheckBox Content="检测广告文件名" IsChecked="{Binding EnableAdFilenameDetection}" Margin="0,0,0,8" />
                 <CheckBox Content="检查 .url 目标地址" IsChecked="{Binding EnableUrlInspection}" Margin="0,0,0,8" />
                 <CheckBox Content="检查小型文本内容" IsChecked="{Binding EnableTextInspection}" Margin="0,0,0,8" />
+                <CheckBox Content="检测图片广告（二维码、公众号、加群等）" IsChecked="{Binding EnableImageAdDetection}" Margin="0,0,0,8" />
+
+                <TextBlock Text="更新" Style="{StaticResource SectionTitle}" Margin="0,18,0,0" />
+                <CheckBox Content="启动时检查更新" IsChecked="{Binding CheckForUpdates}" Margin="0,0,0,8" />
+                <Button Content="立即检查更新"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding CheckUpdatesCommand}"
+                        HorizontalAlignment="Left"
+                        MinWidth="140"
+                        Margin="0,0,0,4" />
 
                 <TextBlock Text="资源管理器" Style="{StaticResource SectionTitle}" Margin="0,18,0,0" />
                 <TextBlock Text="{Binding ShellStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" />

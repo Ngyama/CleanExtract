@@ -68,6 +68,9 @@ public sealed class AppState
         target.EnableAdFilenameDetection = source.EnableAdFilenameDetection;
         target.EnableUrlInspection = source.EnableUrlInspection;
         target.EnableTextInspection = source.EnableTextInspection;
+        target.EnableImageAdDetection = source.EnableImageAdDetection;
+        target.CheckForUpdates = source.CheckForUpdates;
+        target.UpdateFeedUrl = source.UpdateFeedUrl;
     }
 
     private static void CopyRules(RuleConfig source, RuleConfig target)
@@ -82,6 +85,7 @@ public sealed class AppState
         target.EnableAdFilenameDetection = source.EnableAdFilenameDetection;
         target.EnableUrlInspection = source.EnableUrlInspection;
         target.EnableTextInspection = source.EnableTextInspection;
+        target.EnableImageAdDetection = source.EnableImageAdDetection;
         Replace(target.AdPhrasesHigh, source.AdPhrasesHigh);
         Replace(target.AdPhrasesMedium, source.AdPhrasesMedium);
         Replace(target.AdPhrasesLow, source.AdPhrasesLow);
@@ -89,6 +93,10 @@ public sealed class AppState
         Replace(target.TrustedUrlNames, source.TrustedUrlNames);
         Replace(target.ReadmeHints, source.ReadmeHints);
         Replace(target.InspectExtensions, source.InspectExtensions);
+        Replace(target.ImageExtensions, source.ImageExtensions);
+        Replace(target.ImageAdPhrasesHigh, source.ImageAdPhrasesHigh);
+        Replace(target.ImageAdPhrasesMedium, source.ImageAdPhrasesMedium);
+        Replace(target.ImageProtectedNames, source.ImageProtectedNames);
         Replace(target.BlockedDomains, source.BlockedDomains);
         Replace(target.TrustedDomains, source.TrustedDomains);
         Replace(target.SuspiciousDomains, source.SuspiciousDomains);

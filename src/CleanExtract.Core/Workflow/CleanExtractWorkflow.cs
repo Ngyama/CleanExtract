@@ -27,6 +27,17 @@ public sealed class CleanExtractWorkflow
     public async Task<CleanExtractResult> RunAsync(
         string archivePath,
         string? outputDirectory = null,
+        bool uniquifyOutput = true,
+        IProgress<WorkflowProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var plan = await AnalyzeAsync(archivePath, progress, cancellationToken).ConfigureAwait(false);
+        return await ExtractAsync(plan, outputDirectory, uniquifyOutput, progress, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<ExtractPlan> AnalyzeAsync(
+        string archivePath,
         IProgress<WorkflowProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -50,21 +61,43 @@ public sealed class CleanExtractWorkflow
             password = inspectedPassword;
         var verdicts = _cleaner.Classify(entries, contents);
 
-        var excluded = verdicts.Where(v => !v.ShouldExtract(_cleaner.Config.KeepSuspicious)).ToList();
-        var suspiciousKept = verdicts.Where(v =>
-            v.Classification == Classification.Suspicious && v.ShouldExtract(_cleaner.Config.KeepSuspicious)).ToList();
-        foreach (var item in excluded)
+        foreach (var item in verdicts.Where(v => !v.ShouldExtract(_cleaner.Config.KeepSuspicious)))
             _log.Info($"Exclude: {item.Entry.Path} [{item.MatchedRule}] {item.Classification} {item.Reason}");
-        foreach (var item in suspiciousKept)
+        foreach (var item in verdicts.Where(v =>
+                     v.Classification == Classification.Suspicious && v.ShouldExtract(_cleaner.Config.KeepSuspicious)))
             _log.Info($"Keep suspicious: {item.Entry.Path} [{item.MatchedRule}] {item.Reason}");
+
+        return new ExtractPlan
+        {
+            ArchivePath = fullArchivePath,
+            Entries = entries,
+            Contents = contents,
+            Verdicts = verdicts,
+            Password = password,
+        };
+    }
+
+    public ExtractPlan Recategorize(ExtractPlan plan)
+        => plan.WithVerdicts(_cleaner.Classify(plan.Entries, plan.Contents));
+
+    public async Task<CleanExtractResult> ExtractAsync(
+        ExtractPlan plan,
+        string? outputDirectory = null,
+        bool uniquifyOutput = true,
+        IProgress<WorkflowProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var password = plan.Password;
+        var verdicts = plan.Verdicts;
+        var excluded = plan.ExcludedPaths(_cleaner.Config.KeepSuspicious);
 
         if (NeedsPasswordForExtract(verdicts, password, _cleaner.Config.KeepSuspicious))
         {
-            password = await RequestPasswordAsync(fullArchivePath, previousWasWrong: false, cancellationToken)
+            password = await RequestPasswordAsync(plan.ArchivePath, previousWasWrong: false, cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        var destination = OutputDirectoryResolver.Resolve(fullArchivePath, outputDirectory);
+        var destination = OutputDirectoryResolver.Resolve(plan.ArchivePath, outputDirectory, uniquifyOutput);
         OutputDirectoryResolver.EnsureWritable(destination);
         _log.Info($"Output: {destination}");
 
@@ -74,21 +107,21 @@ public sealed class CleanExtractWorkflow
         try
         {
             extract = await _backend.ExtractAsync(
-                fullArchivePath,
+                plan.ArchivePath,
                 destination,
-                excluded.Select(v => v.Entry.Path).ToList(),
+                excluded,
                 password,
                 extractProgress,
                 cancellationToken).ConfigureAwait(false);
         }
         catch (WrongPasswordException)
         {
-            password = await RequestPasswordAsync(fullArchivePath, previousWasWrong: true, cancellationToken)
+            password = await RequestPasswordAsync(plan.ArchivePath, previousWasWrong: true, cancellationToken)
                 .ConfigureAwait(false);
             extract = await _backend.ExtractAsync(
-                fullArchivePath,
+                plan.ArchivePath,
                 destination,
-                excluded.Select(v => v.Entry.Path).ToList(),
+                excluded,
                 password,
                 extractProgress,
                 cancellationToken).ConfigureAwait(false);
@@ -96,10 +129,10 @@ public sealed class CleanExtractWorkflow
 
         var summary = new FilterSummary
         {
-            ArchivePath = fullArchivePath,
+            ArchivePath = plan.ArchivePath,
             OutputDirectory = destination,
             Verdicts = verdicts,
-            ArchiveBytes = new FileInfo(fullArchivePath).Length,
+            ArchiveBytes = new FileInfo(plan.ArchivePath).Length,
         };
 
         _log.Info($"Extracted to {destination}. Filtered {summary.TrashCount} trash, kept {summary.SuspiciousCount} suspicious.");

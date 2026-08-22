@@ -20,6 +20,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private bool _enableAdFilenameDetection;
     private bool _enableUrlInspection;
     private bool _enableTextInspection;
+    private bool _enableImageAdDetection;
+    private bool _checkForUpdates;
     private bool _shellInstalled;
     private string _shellStatus = string.Empty;
     private string _highPhrases = string.Empty;
@@ -41,6 +43,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         InstallShellCommand = new RelayCommand(InstallShell);
         UninstallShellCommand = new RelayCommand(UninstallShell);
         OpenConfigFolderCommand = new RelayCommand(OpenConfigFolder);
+        CheckUpdatesCommand = new RelayCommand(() => _ = CheckUpdatesAsync());
         LoadFromState();
         RefreshShellStatus();
     }
@@ -52,6 +55,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public ICommand InstallShellCommand { get; }
     public ICommand UninstallShellCommand { get; }
     public ICommand OpenConfigFolderCommand { get; }
+    public ICommand CheckUpdatesCommand { get; }
 
     public bool FilterMacosMetadata { get => _filterMacosMetadata; set => Set(ref _filterMacosMetadata, value); }
     public bool FilterThumbsDb { get => _filterThumbsDb; set => Set(ref _filterThumbsDb, value); }
@@ -60,6 +64,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool EnableAdFilenameDetection { get => _enableAdFilenameDetection; set => Set(ref _enableAdFilenameDetection, value); }
     public bool EnableUrlInspection { get => _enableUrlInspection; set => Set(ref _enableUrlInspection, value); }
     public bool EnableTextInspection { get => _enableTextInspection; set => Set(ref _enableTextInspection, value); }
+    public bool EnableImageAdDetection { get => _enableImageAdDetection; set => Set(ref _enableImageAdDetection, value); }
+    public bool CheckForUpdates { get => _checkForUpdates; set => Set(ref _checkForUpdates, value); }
     public bool ShellInstalled { get => _shellInstalled; private set => Set(ref _shellInstalled, value); }
     public string ShellStatus { get => _shellStatus; private set => Set(ref _shellStatus, value); }
     public string HighPhrases { get => _highPhrases; set => Set(ref _highPhrases, value); }
@@ -84,6 +90,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         EnableAdFilenameDetection = settings.EnableAdFilenameDetection;
         EnableUrlInspection = settings.EnableUrlInspection;
         EnableTextInspection = settings.EnableTextInspection;
+        EnableImageAdDetection = settings.EnableImageAdDetection;
+        CheckForUpdates = settings.CheckForUpdates;
         HighPhrases = ListText.Join(rules.AdPhrasesHigh);
         MediumPhrases = ListText.Join(rules.AdPhrasesMedium);
         LowPhrases = ListText.Join(rules.AdPhrasesLow);
@@ -126,6 +134,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         settings.EnableAdFilenameDetection = EnableAdFilenameDetection;
         settings.EnableUrlInspection = EnableUrlInspection;
         settings.EnableTextInspection = EnableTextInspection;
+        settings.EnableImageAdDetection = EnableImageAdDetection;
+        settings.CheckForUpdates = CheckForUpdates;
 
         var rules = _state.Rules;
         Replace(rules.AdPhrasesHigh, ListText.Split(HighPhrases));
@@ -179,6 +189,29 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             ShellStatus = "右键菜单已安装，但指向另一个位置。可以重新安装以修复。";
         else
             ShellStatus = "尚未安装右键菜单。安装后，可在 ZIP / RAR / 7z 上右键选择“干净解压”。";
+    }
+
+    private async Task CheckUpdatesAsync()
+    {
+        ApplyEditorToState();
+        _state.SaveAll();
+        StatusMessage = "正在检查更新...";
+        var result = await AppUpdate.CheckAsync(_state.Settings, _state.Log, downloadAndRestart: false);
+        StatusMessage = result.Message;
+        if (result.UpdateAvailable && result.Version is not null)
+        {
+            var apply = MessageBox.Show(
+                $"发现新版本 {result.Version}。下载并重启以完成更新？",
+                "Clean Extract",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Information);
+            if (apply != MessageBoxResult.OK)
+                return;
+
+            StatusMessage = "正在下载更新...";
+            var applied = await AppUpdate.CheckAsync(_state.Settings, _state.Log, downloadAndRestart: true);
+            StatusMessage = applied.Message;
+        }
     }
 
     private static void OpenConfigFolder()

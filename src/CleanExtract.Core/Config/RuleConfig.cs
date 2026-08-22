@@ -22,6 +22,8 @@ public sealed class RuleConfig
 
     public bool EnableTextInspection { get; set; } = true;
 
+    public bool EnableImageAdDetection { get; set; } = true;
+
     public List<string> AdPhrasesHigh { get; set; } =
     [
         "最新网址",
@@ -134,6 +136,73 @@ public sealed class RuleConfig
         ".htm",
         ".md",
     ];
+
+    public List<string> ImageExtensions { get; set; } =
+    [
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".tif",
+        ".tiff",
+        ".jfif",
+        ".avif",
+    ];
+
+    public List<string> ImageAdPhrasesHigh { get; set; } =
+    [
+        "二维码",
+        "扫码关注",
+        "扫码加群",
+        "微信二维码",
+        "公众号二维码",
+        "客服微信",
+        "加微信",
+        "微信群",
+        "qq群",
+        "加群",
+        "公众号",
+        "扫码",
+        "防失联",
+        "最新网址",
+        "备用网址",
+        "电报频道",
+        "tg频道",
+        "telegram频道",
+    ];
+
+    public List<string> ImageAdPhrasesMedium { get; set; } =
+    [
+        "微信",
+        "福利",
+        "推广",
+        "广告",
+        "联系方式",
+        "加我",
+    ];
+
+    public List<string> ImageProtectedNames { get; set; } =
+    [
+        "cover",
+        "preview",
+        "screenshot",
+        "screenshots",
+        "logo",
+        "icon",
+        "artwork",
+        "poster",
+        "wallpaper",
+        "thumbnail",
+        "封面",
+        "截图",
+        "预览",
+        "海报",
+        "壁纸",
+        "图标",
+        "立绘",
+    ];
 }
 
 public sealed class AppSettings
@@ -152,6 +221,12 @@ public sealed class AppSettings
 
     public bool EnableTextInspection { get; set; } = true;
 
+    public bool EnableImageAdDetection { get; set; } = true;
+
+    public bool CheckForUpdates { get; set; } = true;
+
+    public string UpdateFeedUrl { get; set; } = UpdateDefaults.GitHubRepoUrl;
+
     public void ApplyTo(RuleConfig rules)
     {
         rules.FilterMacosMetadata = FilterMacosMetadata;
@@ -161,7 +236,13 @@ public sealed class AppSettings
         rules.EnableAdFilenameDetection = EnableAdFilenameDetection;
         rules.EnableUrlInspection = EnableUrlInspection;
         rules.EnableTextInspection = EnableTextInspection;
+        rules.EnableImageAdDetection = EnableImageAdDetection;
     }
+}
+
+public static class UpdateDefaults
+{
+    public const string GitHubRepoUrl = "https://github.com/Ngyama/CleanExtract";
 }
 
 public sealed class DomainLists

@@ -20,16 +20,18 @@ __MACOSX/
 Thumbs.db
 ```
 
-Clean Extract 的目标是：选择压缩包后一键完成干净解压。
+Clean Extract 的目标是：选择压缩包后先预览将跳过的内容，确认后再干净解压。
 
 ## 主要功能
 
 - 支持拖放或选择压缩包；格式以捆绑的 7-Zip 为准，常见类型包括 ZIP、RAR、7z
-- 解压前读取压缩包目录，按规则将条目分为 Clean、Suspicious、Trash
+- 解压前读取压缩包目录，按规则将条目分为 Clean、Suspicious、Trash，并在解压前显示预览
 - Trash 默认不解压，文件不会落到磁盘
 - Suspicious 默认保留，以降低误删说明文档或合法链接的风险
 - 对体积较小的 `.url`、`.txt`、`.html` 等文件，可在内存中读取内容辅助判断
+- 识别常见图片广告（二维码、公众号、加群等），封面/截图/图标等文件名会保留
 - 支持加密压缩包，密码仅用于当次操作，不写入日志，也不持久保存
+- 可选择输出目录，或解压到压缩包所在目录；默认仍创建与压缩包同名的独立文件夹
 - 解压完成后显示过滤摘要，并可查看每条命中规则的原因
 - 支持将指定文件名标记为“以后总是保留”或“以后总是过滤”
 - 提供设置界面，可调整过滤开关、关键词与域名列表
@@ -42,7 +44,7 @@ Clean Extract 的目标是：选择压缩包后一键完成干净解压。
   → 7-Zip 列出内部文件
   → CleanerEngine 按规则分类
   → 必要时读取小型文本 / URL 内容
-  → 生成排除列表
+  → 显示将跳过 / 将保留的可疑文件，并确认输出目录
   → 7-Zip 仅解压需要保留的条目
   → 显示过滤结果
 ```
@@ -57,19 +59,57 @@ Clean Extract 的目标是：选择压缩包后一键完成干净解压。
 
 仅在高置信度时自动过滤；判断不确定时予以保留。程序只是指示 7-Zip 跳过部分条目，不会改写或删除原始压缩包中的数据。
 
-默认输出目录与常见解压软件一致。例如 `D:\Downloads\Game.rar` 会解压到 `D:\Downloads\Game\`。
+默认输出目录与常见解压软件一致。例如 `D:\Downloads\Game.rar` 会解压到 `D:\Downloads\Game\`。也可改为解压到压缩包所在目录，或自选文件夹。
 
 ## 系统要求
 
 - Windows 10 21H2 或更高版本（x64）
-- 运行已构建的程序不依赖 Visual Studio
+- 运行 `scripts/publish.ps1` 生成的程序不依赖 Visual Studio，也不需要单独安装 .NET
 - 从源码构建需要 [.NET 8 SDK](https://dotnet.microsoft.com/download)
+
+## 从源码构建
+
+捆绑的 7-Zip 不在 git 仓库中。构建或发布前需要先拉取：
+
+```text
+powershell -File scripts/fetch-7zip.ps1
+dotnet build
+dotnet test
+```
+
+发布自包含的 Windows x64 目录（会在缺少 7-Zip 时自动拉取）：
+
+```text
+powershell -File scripts/publish.ps1
+```
+
+产物在 `dist/CleanExtract-win-x64/`。将该文件夹复制到目标电脑即可运行 `CleanExtract.exe`。
+
+打安装包（含自动更新所需的 release 文件）：
+
+```text
+powershell -File scripts/release.ps1
+```
+
+安装程序在 `dist/releases/`。把该目录上传到 GitHub Releases 后，已安装的程序即可检查更新。便携目录不会自动更新。
+
+### 代码签名
+
+没有证书时，发布脚本会跳过签名。若要 Authenticode 签名，设置环境变量后再发布：
+
+```text
+CLEANEXTRACT_SIGN_PFX=C:\certs\codesign.pfx
+CLEANEXTRACT_SIGN_PASSWORD=...
+CLEANEXTRACT_SIGN_TIMESTAMP=http://timestamp.digicert.com
+```
+
+也可以用证书存储中的指纹：`CLEANEXTRACT_SIGN_THUMBPRINT`。签名需要 Windows SDK 的 `signtool.exe`。自签名证书无法消除 SmartScreen 警告，需要受信任的代码签名证书。
 
 ## 使用方法
 
 ### 图形界面
 
-运行 `CleanExtract.exe` 后，将压缩包拖入窗口或选择文件，然后点击「干净解压」。
+运行 `CleanExtract.exe` 后，将压缩包拖入窗口或选择文件。程序会先分析内部文件，列出将跳过的垃圾和将保留的可疑项，并显示输出目录。确认后点击「干净解压」。
 
 解压完成后可以：
 
@@ -105,8 +145,8 @@ CleanExtract.exe --uninstall-shell
 
 | 文件 | 内容 |
 | --- | --- |
-| `settings.json` | 过滤开关，例如是否处理 macOS 元数据、是否保留 Suspicious |
-| `rules.json` | 评分阈值与广告关键词 |
+| `settings.json` | 过滤开关、启动时检查更新 |
+| `rules.json` | 评分阈值、广告关键词、图片广告关键词 |
 | `domains.json` | 信任域名、拦截域名、可疑短链域名 |
 | `overrides.json` | 用户指定的始终保留 / 始终过滤文件名 |
 

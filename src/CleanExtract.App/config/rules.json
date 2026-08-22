@@ -9,6 +9,7 @@
   "enableAdFilenameDetection": true,
   "enableUrlInspection": true,
   "enableTextInspection": true,
+  "enableImageAdDetection": true,
   "adPhrasesHigh": [
     "最新网址",
     "最新地址",
@@ -60,5 +61,33 @@
     "发布页",
     "tg频道",
     "t.me"
+  ],
+  "imageAdPhrasesHigh": [
+    "二维码",
+    "扫码关注",
+    "扫码加群",
+    "微信二维码",
+    "公众号二维码",
+    "客服微信",
+    "加微信",
+    "微信群",
+    "qq群",
+    "加群",
+    "公众号",
+    "扫码",
+    "防失联",
+    "最新网址",
+    "备用网址",
+    "电报频道",
+    "tg频道",
+    "telegram频道"
+  ],
+  "imageAdPhrasesMedium": [
+    "微信",
+    "福利",
+    "推广",
+    "广告",
+    "联系方式",
+    "加我"
   ]
 }

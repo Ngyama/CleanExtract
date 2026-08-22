@@ -5,5 +5,8 @@
   "keepSuspicious": true,
   "enableAdFilenameDetection": true,
   "enableUrlInspection": true,
-  "enableTextInspection": true
+  "enableTextInspection": true,
+  "enableImageAdDetection": true,
+  "checkForUpdates": true,
+  "updateFeedUrl": "https://github.com/Ngyama/CleanExtract"
 }

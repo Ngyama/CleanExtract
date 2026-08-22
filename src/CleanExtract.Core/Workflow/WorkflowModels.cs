@@ -1,6 +1,36 @@
+using CleanExtract.Core.Archive;
 using CleanExtract.Core.Cleaning;
 
 namespace CleanExtract.Core.Workflow;
+
+public sealed class ExtractPlan
+{
+    public required string ArchivePath { get; init; }
+
+    public required IReadOnlyList<ArchiveEntry> Entries { get; init; }
+
+    public required IReadOnlyDictionary<string, EntryContent> Contents { get; init; }
+
+    public required IReadOnlyList<CleanVerdict> Verdicts { get; init; }
+
+    public string? Password { get; init; }
+
+    public ExtractPlan WithVerdicts(IReadOnlyList<CleanVerdict> verdicts)
+    {
+        return new ExtractPlan
+        {
+            ArchivePath = ArchivePath,
+            Entries = Entries,
+            Contents = Contents,
+            Verdicts = verdicts,
+            Password = Password,
+        };
+    }
+
+    public IReadOnlyList<string> ExcludedPaths(bool keepSuspicious)
+        => Verdicts.Where(v => !v.ShouldExtract(keepSuspicious)).Select(v => v.Entry.Path).ToList();
+}
+
 
 public sealed class FilterSummary
 {

@@ -66,7 +66,7 @@ public partial class App : Application
             var window = new MainWindow();
             var prompt = new UiPasswordPrompt(window);
             var workflow = new CleanExtractWorkflow(backend, cleaner, prompt, _log);
-            var viewModel = new MainViewModel(backend, workflow, appState);
+            var viewModel = new MainViewModel(workflow, appState);
             viewModel.OpenSettingsRequested = () =>
             {
                 var settings = new SettingsWindow(appState) { Owner = window };
@@ -82,6 +82,21 @@ public partial class App : Application
             }
 
             window.Show();
+
+            if (archive is null && appState.Settings.CheckForUpdates)
+            {
+                window.ContentRendered += async (_, _) =>
+                {
+                    try
+                    {
+                        await PromptUpdateAsync(appState, window);
+                    }
+                    catch (Exception ex)
+                    {
+                        _log?.Warn("Startup update check failed: " + ex.Message);
+                    }
+                };
+            }
         }
         catch (Exception ex)
         {
@@ -129,6 +144,24 @@ public partial class App : Application
         }
 
         return false;
+    }
+
+    private static async Task PromptUpdateAsync(AppState state, Window owner)
+    {
+        var result = await AppUpdate.CheckAsync(state.Settings, state.Log, downloadAndRestart: false);
+        if (!result.UpdateAvailable)
+            return;
+
+        var apply = MessageBox.Show(
+            owner,
+            $"发现新版本 {result.Version}。下载并重启以完成更新？",
+            "Clean Extract",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Information);
+        if (apply != MessageBoxResult.OK)
+            return;
+
+        await AppUpdate.CheckAsync(state.Settings, state.Log, downloadAndRestart: true);
     }
 
     protected override void OnExit(ExitEventArgs e)

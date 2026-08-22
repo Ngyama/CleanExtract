@@ -32,3 +32,9 @@ See `resources/7-Zip-License.txt` for the complete license text.
 Windows Extra `7za.exe` was not used as the default backend because that reduced
 build does not unpack RAR. Clean Extract therefore ships the full 7-Zip console
 (`7z.exe` + `7z.dll`) as `7zz.exe`.
+
+## Velopack
+
+The installer and in-app updater use Velopack, Copyright (c) Velopack Ltd,
+licensed under the MIT License: https://github.com/velopack/velopack
+

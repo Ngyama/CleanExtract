@@ -174,4 +174,51 @@ public sealed class CleanerEngineTests
         var verdict = _engine.Classify(Entries.File("使用说明.txt", 80), content);
         Assert.NotEqual(Classification.Trash, verdict.Classification);
     }
+
+    [Theory]
+    [InlineData("二维码.png")]
+    [InlineData("微信二维码.jpg")]
+    [InlineData("公众号.webp")]
+    [InlineData("扫码加群.gif")]
+    [InlineData("客服微信.png")]
+    public void PromoImages_AreTrash(string path)
+    {
+        var verdict = _engine.Classify(Entries.File(path, 48_000));
+        Assert.Equal(Classification.Trash, verdict.Classification);
+        Assert.Equal("ad.image.high", verdict.MatchedRule);
+    }
+
+    [Fact]
+    public void WeChatNamedImage_IsSuspiciousNotTrash()
+    {
+        var verdict = _engine.Classify(Entries.File("微信.jpg", 36_000));
+        Assert.Equal(Classification.Suspicious, verdict.Classification);
+        Assert.True(verdict.ShouldExtract(keepSuspicious: true));
+    }
+
+    [Theory]
+    [InlineData("cover.png")]
+    [InlineData("screenshot.jpg")]
+    [InlineData("封面.png")]
+    [InlineData("icon.png")]
+    [InlineData("screenshot2.webp")]
+    public void ProtectedImages_AreClean(string path)
+    {
+        var verdict = _engine.Classify(Entries.File(path, 120_000));
+        Assert.Equal(Classification.Clean, verdict.Classification);
+    }
+
+    [Fact]
+    public void OrdinaryGameTexture_IsClean()
+    {
+        var verdict = _engine.Classify(Entries.File("Game/textures/wall01.png", 250_000));
+        Assert.Equal(Classification.Clean, verdict.Classification);
+    }
+
+    [Fact]
+    public void NumberedRootJpeg_IsNotTrash()
+    {
+        var verdict = _engine.Classify(Entries.File("1.jpg", 80_000));
+        Assert.NotEqual(Classification.Trash, verdict.Classification);
+    }
 }

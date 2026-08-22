@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>..\..\assets\app.ico</ApplicationIcon>
+    <StartupObject>CleanExtract.Program</StartupObject>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>CleanExtract</AssemblyName>
     <RootNamespace>CleanExtract</RootNamespace>
@@ -20,13 +22,27 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\third_party\7zip\7zz.exe" Link="resources\7zz.exe">
+    <PackageReference Include="Velopack" Version="1.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\assets\icon.png" Link="icon.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\third_party\7zip\7zz.exe" Link="resources\7zz.exe" Condition="Exists('..\..\third_party\7zip\7zz.exe')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\..\third_party\7zip\7z.dll" Link="resources\7z.dll">
+    <None Include="..\..\third_party\7zip\7z.dll" Link="resources\7z.dll" Condition="Exists('..\..\third_party\7zip\7z.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\..\third_party\7zip\License.txt" Link="resources\7-Zip-License.txt">
+    <None Include="..\..\third_party\7zip\License.txt" Link="resources\7-Zip-License.txt" Condition="Exists('..\..\third_party\7zip\License.txt')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\LICENSE" Link="LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Link="THIRD_PARTY_NOTICES.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="config\*.json">

@@ -15,18 +15,33 @@ public static class OutputDirectoryResolver
         ".tbz2",
     ];
 
-    public static string Resolve(string archivePath, string? requestedDirectory = null)
+    public static string Resolve(string archivePath, string? requestedDirectory = null, bool uniquify = true)
     {
+        string destination;
         if (!string.IsNullOrWhiteSpace(requestedDirectory))
-            return UniqueDirectory(requestedDirectory);
+        {
+            destination = Path.GetFullPath(requestedDirectory);
+        }
+        else
+        {
+            destination = DefaultSiblingDirectory(archivePath);
+        }
 
-        var parent = Path.GetDirectoryName(archivePath);
-        if (string.IsNullOrWhiteSpace(parent))
-            parent = Environment.CurrentDirectory;
+        return uniquify ? UniqueDirectory(destination) : destination;
+    }
 
+    public static string DefaultSiblingDirectory(string archivePath)
+    {
+        var parent = ArchiveParent(archivePath);
         var stem = GetArchiveStem(archivePath);
-        var candidate = Path.Combine(parent, stem);
-        return UniqueDirectory(candidate);
+        return Path.Combine(parent, stem);
+    }
+
+    public static string ArchiveParent(string archivePath)
+    {
+        var full = Path.GetFullPath(archivePath);
+        var parent = Path.GetDirectoryName(full);
+        return string.IsNullOrWhiteSpace(parent) ? Environment.CurrentDirectory : parent;
     }
 
     public static string GetArchiveStem(string archivePath)

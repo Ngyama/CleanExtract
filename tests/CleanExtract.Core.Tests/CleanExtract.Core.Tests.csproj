@@ -23,10 +23,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\third_party\7zip\7zz.exe" Link="resources\7zz.exe">
+    <None Include="..\..\third_party\7zip\7zz.exe" Link="resources\7zz.exe" Condition="Exists('..\..\third_party\7zip\7zz.exe')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\..\third_party\7zip\7z.dll" Link="resources\7z.dll">
+    <None Include="..\..\third_party\7zip\7z.dll" Link="resources\7z.dll" Condition="Exists('..\..\third_party\7zip\7z.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

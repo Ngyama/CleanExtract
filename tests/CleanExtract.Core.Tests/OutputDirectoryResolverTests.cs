@@ -52,4 +52,28 @@ public sealed class OutputDirectoryResolverTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public void Resolve_WithoutUniquify_KeepsExistingDirectory()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "cleanextract-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "keep.txt"), "x");
+        try
+        {
+            var archive = Path.Combine(root, "Game.rar");
+            var resolved = OutputDirectoryResolver.Resolve(archive, root, uniquify: false);
+            Assert.Equal(Path.GetFullPath(root), resolved);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ArchiveParent_UsesDirectoryOfArchive()
+    {
+        Assert.Equal(@"D:\Downloads", OutputDirectoryResolver.ArchiveParent(@"D:\Downloads\Game.rar"));
+    }
 }

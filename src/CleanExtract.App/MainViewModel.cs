@@ -5,30 +5,41 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using CleanExtract.Core;
-using CleanExtract.Core.Archive;
 using CleanExtract.Core.Cleaning;
+using CleanExtract.Core.IO;
 using CleanExtract.Core.Logging;
 using CleanExtract.Core.Workflow;
+using Microsoft.Win32;
 
 namespace CleanExtract;
 
 public enum UiState
 {
     Empty,
-    Ready,
+    Analyzing,
+    Preview,
     Running,
     Success,
     Failed,
     Details,
 }
 
+public enum OutputPlacement
+{
+    SiblingFolder,
+    ArchiveDirectory,
+    Custom,
+}
+
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    private readonly IArchiveBackend _backend;
     private readonly CleanExtractWorkflow _workflow;
     private readonly IAppLog _log;
     private readonly AppState _app;
     private CancellationTokenSource? _cts;
+    private ExtractPlan? _plan;
+    private int _loadGeneration;
+    private OutputPlacement _outputPlacement = OutputPlacement.SiblingFolder;
 
     private UiState _state = UiState.Empty;
     private string _archivePath = string.Empty;
@@ -37,27 +48,34 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private double _progressPercent;
     private bool _isProgressIndeterminate = true;
     private string _statusText = string.Empty;
+    private string _errorHeadline = "无法完成解压";
     private string _errorText = string.Empty;
     private string _resultHeadline = string.Empty;
     private string _resultDetail = string.Empty;
+    private string _previewSummary = string.Empty;
+    private string _outputDirectory = string.Empty;
+    private string _outputHint = string.Empty;
+    private string _previewNote = string.Empty;
     private FilterSummary? _summary;
 
-    public MainViewModel(IArchiveBackend backend, CleanExtractWorkflow workflow, AppState state)
+    public MainViewModel(CleanExtractWorkflow workflow, AppState state)
     {
-        _backend = backend;
         _workflow = workflow;
         _app = state;
         _log = state.Log;
-        BrowseCommand = new RelayCommand(Browse, () => State is not UiState.Running);
-        ExtractCommand = new RelayCommand(() => _ = ExtractAsync(), () => State is UiState.Ready && !string.IsNullOrEmpty(ArchivePath));
-        CancelCommand = new RelayCommand(Cancel, () => State is UiState.Running);
-        ResetCommand = new RelayCommand(Reset, () => State is not UiState.Running);
+        BrowseCommand = new RelayCommand(Browse, () => !IsBusy);
+        ExtractCommand = new RelayCommand(() => _ = ExtractAsync(), () => State is UiState.Preview && _plan is not null);
+        CancelCommand = new RelayCommand(Cancel, () => IsBusy);
+        ResetCommand = new RelayCommand(Reset, () => !IsBusy);
         OpenFolderCommand = new RelayCommand(OpenFolder, () => !string.IsNullOrEmpty(Summary?.OutputDirectory));
         ShowDetailsCommand = new RelayCommand(() => State = UiState.Details, () => Summary is not null);
         HideDetailsCommand = new RelayCommand(() => State = UiState.Success);
-        SettingsCommand = new RelayCommand(OpenSettings, () => State is not UiState.Running);
+        SettingsCommand = new RelayCommand(OpenSettings, () => !IsBusy);
         AlwaysKeepCommand = new RelayCommand<DetailRow>(AlwaysKeep);
         AlwaysFilterCommand = new RelayCommand<DetailRow>(AlwaysFilter);
+        BrowseOutputCommand = new RelayCommand(BrowseOutput, () => State is UiState.Preview);
+        ExtractHereCommand = new RelayCommand(ExtractHere, () => State is UiState.Preview && !string.IsNullOrEmpty(ArchivePath));
+        UseDefaultOutputCommand = new RelayCommand(UseDefaultOutput, () => State is UiState.Preview && !string.IsNullOrEmpty(ArchivePath));
     }
 
     public Action? OpenSettingsRequested { get; set; }
@@ -69,6 +87,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (row is null)
             return;
         _app.AlwaysKeep(row.FileName);
+        if (State is UiState.Preview)
+        {
+            RecategorizePreview($"已记住：本次和以后都将保留 {row.FileName}");
+            return;
+        }
+
         row.StatusNote = $"已记住：下次将保留 {row.FileName}";
     }
 
@@ -77,7 +101,23 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (row is null)
             return;
         _app.AlwaysFilter(row.FileName);
+        if (State is UiState.Preview)
+        {
+            RecategorizePreview($"已记住：本次和以后都将过滤 {row.FileName}");
+            return;
+        }
+
         row.StatusNote = $"已记住：下次将过滤 {row.FileName}";
+    }
+
+    private void RecategorizePreview(string note)
+    {
+        if (_plan is null)
+            return;
+        _plan = _workflow.Recategorize(_plan);
+        PreviewNote = note;
+        FillDetails(_plan.Verdicts, pending: true);
+        PreviewSummary = BuildPreviewSummary(_plan.Verdicts, _app.Rules.KeepSuspicious);
     }
 
     public ICommand BrowseCommand { get; }
@@ -90,6 +130,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand SettingsCommand { get; }
     public ICommand AlwaysKeepCommand { get; }
     public ICommand AlwaysFilterCommand { get; }
+    public ICommand BrowseOutputCommand { get; }
+    public ICommand ExtractHereCommand { get; }
+    public ICommand UseDefaultOutputCommand { get; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -154,6 +197,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public string ProgressPercentText => $"{ProgressPercent:0}%";
 
+    public string ErrorHeadline
+    {
+        get => _errorHeadline;
+        private set => Set(ref _errorHeadline, value);
+    }
+
     public string ErrorText
     {
         get => _errorText;
@@ -172,6 +221,36 @@ public sealed class MainViewModel : INotifyPropertyChanged
         private set => Set(ref _resultDetail, value);
     }
 
+    public string PreviewSummary
+    {
+        get => _previewSummary;
+        private set => Set(ref _previewSummary, value);
+    }
+
+    public string OutputDirectory
+    {
+        get => _outputDirectory;
+        private set => Set(ref _outputDirectory, value);
+    }
+
+    public string OutputHint
+    {
+        get => _outputHint;
+        private set => Set(ref _outputHint, value);
+    }
+
+    public string PreviewNote
+    {
+        get => _previewNote;
+        private set
+        {
+            if (Set(ref _previewNote, value))
+                OnPropertyChanged(nameof(HasPreviewNote));
+        }
+    }
+
+    public bool HasPreviewNote => !string.IsNullOrWhiteSpace(PreviewNote);
+
     public FilterSummary? Summary
     {
         get => _summary;
@@ -179,24 +258,30 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     public bool IsEmpty => State is UiState.Empty;
-    public bool IsReady => State is UiState.Ready;
-    public bool IsRunning => State is UiState.Running;
+    public bool IsPreview => State is UiState.Preview;
+    public bool IsBusy => State is UiState.Analyzing or UiState.Running;
     public bool IsSuccess => State is UiState.Success;
     public bool IsFailed => State is UiState.Failed;
     public bool IsDetails => State is UiState.Details;
-    public bool ShowHome => State is UiState.Empty or UiState.Ready;
+    public bool ShowHome => State is UiState.Empty;
     public bool HasTrash => TrashRows.Count > 0;
     public bool HasSuspicious => SuspiciousRows.Count > 0;
+    public bool IsDefaultOutput => _outputPlacement is OutputPlacement.SiblingFolder;
+    public bool ShowRestoreOutput => _outputPlacement is not OutputPlacement.SiblingFolder;
 
     public async Task SetArchiveAsync(string path)
     {
         if (State is UiState.Running)
             return;
+
+        _cts?.Cancel();
+        var generation = ++_loadGeneration;
+        _cts = new CancellationTokenSource();
+        var cancellation = _cts.Token;
+
         if (!File.Exists(path))
         {
-            State = UiState.Failed;
-            ErrorText = "找不到这个压缩包。";
-            OnPropertyChanged(nameof(IsFailed));
+            Fail("找不到这个压缩包。", "无法打开压缩包");
             return;
         }
 
@@ -205,37 +290,62 @@ public sealed class MainViewModel : INotifyPropertyChanged
         var size = new FileInfo(ArchivePath).Length;
         ArchiveMeta = FileSizeFormatter.Format(size);
         Summary = null;
+        _plan = null;
         ErrorText = string.Empty;
-        State = UiState.Ready;
+        PreviewNote = string.Empty;
+        PreviewSummary = string.Empty;
+        TrashRows.Clear();
+        SuspiciousRows.Clear();
+        State = UiState.Analyzing;
+        StatusText = "正在分析压缩包...";
+        ProgressPercent = 0;
+        IsProgressIndeterminate = true;
         NotifyState();
 
+        var progress = CreateProgress();
         try
         {
-            var entries = await _backend.ListEntriesAsync(ArchivePath, password: null).ConfigureAwait(true);
-            var files = entries.Count(e => !e.IsDirectory);
+            var plan = await _workflow.AnalyzeAsync(ArchivePath, progress, cancellation).ConfigureAwait(true);
+            if (generation != _loadGeneration)
+                return;
+
+            _plan = plan;
+            var files = plan.Entries.Count(e => !e.IsDirectory);
             ArchiveMeta = $"{FileSizeFormatter.Format(size)}  ·  {files} 个文件";
+            PreviewSummary = BuildPreviewSummary(plan.Verdicts, _app.Rules.KeepSuspicious);
+            FillDetails(plan.Verdicts, pending: true);
+            UseDefaultOutput();
+            State = UiState.Preview;
         }
-        catch (PasswordRequiredException)
+        catch (OperationCanceledException)
         {
-            ArchiveMeta = $"{FileSizeFormatter.Format(size)}  ·  需要密码";
+            if (generation != _loadGeneration)
+                return;
+            Fail("已取消。", "已取消");
         }
         catch (Exception ex)
         {
-            _log.Warn($"Preview listing failed: {ex.Message}");
-            ArchiveMeta = FileSizeFormatter.Format(size);
+            if (generation != _loadGeneration)
+                return;
+            _log.Error("Analyze failed", ex);
+            Fail(UserMessages.For(ex), "无法分析压缩包");
+        }
+        finally
+        {
+            if (generation == _loadGeneration)
+            {
+                _cts.Dispose();
+                _cts = null;
+                NotifyState();
+            }
         }
     }
 
-    public async Task OpenAndExtractAsync(string path)
-    {
-        await SetArchiveAsync(path).ConfigureAwait(true);
-        if (State is UiState.Ready)
-            await ExtractAsync().ConfigureAwait(true);
-    }
+    public Task OpenAndExtractAsync(string path) => SetArchiveAsync(path);
 
     public void Browse()
     {
-        var dialog = new Microsoft.Win32.OpenFileDialog
+        var dialog = new OpenFileDialog
         {
             Title = "选择压缩包",
             Filter = "Archives|*.zip;*.rar;*.7z;*.xz;*.gz;*.tar;*.tgz;*.001;*.iso;*.cab|All files|*.*",
@@ -247,57 +357,44 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task ExtractAsync()
     {
-        if (string.IsNullOrEmpty(ArchivePath) || State is UiState.Running)
+        if (_plan is null || State is not UiState.Preview)
             return;
 
         _cts = new CancellationTokenSource();
         State = UiState.Running;
-        StatusText = "正在分析压缩包...";
+        StatusText = "正在解压...";
         ProgressPercent = 0;
         IsProgressIndeterminate = true;
         NotifyState();
 
-        var progress = new Progress<WorkflowProgress>(p =>
-        {
-            StatusText = p.Message;
-            if (p.Percent is double pct)
-            {
-                IsProgressIndeterminate = false;
-                ProgressPercent = pct;
-            }
-            else if (string.Equals(p.Stage, "extract", StringComparison.Ordinal))
-            {
-                IsProgressIndeterminate = false;
-                ProgressPercent = 0;
-            }
-            else
-            {
-                IsProgressIndeterminate = true;
-                ProgressPercent = 0;
-            }
-        });
+        var progress = CreateProgress();
+        var uniquify = _outputPlacement is OutputPlacement.SiblingFolder;
         try
         {
-            var result = await _workflow.RunAsync(ArchivePath, progress: progress, cancellationToken: _cts.Token)
+            var result = await _workflow.ExtractAsync(
+                    _plan,
+                    OutputDirectory,
+                    uniquify,
+                    progress,
+                    _cts.Token)
                 .ConfigureAwait(true);
             Summary = result.Summary;
             ResultHeadline = "解压完成";
             ResultDetail = BuildResultDetail(result.Summary, _app.Rules.KeepSuspicious);
             if (!string.IsNullOrWhiteSpace(result.Warning))
                 ResultDetail += Environment.NewLine + result.Warning;
-            FillDetails(result.Summary);
+            FillDetails(result.Summary.Verdicts, pending: false);
             State = UiState.Success;
         }
         catch (OperationCanceledException)
         {
-            State = UiState.Failed;
-            ErrorText = "已取消。";
+            State = UiState.Preview;
+            PreviewNote = "已取消解压，压缩包尚未写入磁盘。";
         }
         catch (Exception ex)
         {
             _log.Error("Extract failed", ex);
-            State = UiState.Failed;
-            ErrorText = UserMessages.For(ex);
+            Fail(UserMessages.For(ex), "无法完成解压");
         }
         finally
         {
@@ -311,16 +408,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void Reset()
     {
+        if (State is UiState.Failed && _plan is not null && !string.IsNullOrEmpty(ArchivePath))
+        {
+            ErrorText = string.Empty;
+            State = UiState.Preview;
+            NotifyState();
+            return;
+        }
+
+        _cts?.Cancel();
+        _loadGeneration++;
+        _plan = null;
         ArchivePath = string.Empty;
         ArchiveName = string.Empty;
         ArchiveMeta = string.Empty;
         StatusText = string.Empty;
         ProgressPercent = 0;
         IsProgressIndeterminate = true;
+        ErrorHeadline = "无法完成解压";
         ErrorText = string.Empty;
         ResultHeadline = string.Empty;
         ResultDetail = string.Empty;
+        PreviewSummary = string.Empty;
+        OutputDirectory = string.Empty;
+        OutputHint = string.Empty;
+        PreviewNote = string.Empty;
         Summary = null;
+        _outputPlacement = OutputPlacement.SiblingFolder;
         TrashRows.Clear();
         SuspiciousRows.Clear();
         State = UiState.Empty;
@@ -339,18 +453,77 @@ public sealed class MainViewModel : INotifyPropertyChanged
         });
     }
 
-    private void FillDetails(FilterSummary summary)
+    private void BrowseOutput()
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "选择解压目录",
+            InitialDirectory = Directory.Exists(OutputDirectory)
+                ? OutputDirectory
+                : OutputDirectoryResolver.ArchiveParent(ArchivePath),
+        };
+        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.FolderName))
+            return;
+
+        _outputPlacement = OutputPlacement.Custom;
+        OutputDirectory = Path.GetFullPath(dialog.FolderName);
+        OutputHint = "将解压到你选择的文件夹。已有同名文件会被覆盖。";
+        NotifyOutput();
+    }
+
+    private void ExtractHere()
+    {
+        _outputPlacement = OutputPlacement.ArchiveDirectory;
+        OutputDirectory = OutputDirectoryResolver.ArchiveParent(ArchivePath);
+        OutputHint = "文件将直接解压到压缩包所在目录。已有同名文件会被覆盖。";
+        NotifyOutput();
+    }
+
+    private void UseDefaultOutput()
+    {
+        _outputPlacement = OutputPlacement.SiblingFolder;
+        OutputDirectory = OutputDirectoryResolver.Resolve(ArchivePath);
+        OutputHint = "将解压到独立文件夹。若该文件夹已有内容，会自动加序号。";
+        NotifyOutput();
+    }
+
+    private void NotifyOutput()
+    {
+        OnPropertyChanged(nameof(IsDefaultOutput));
+        OnPropertyChanged(nameof(ShowRestoreOutput));
+        RaiseCommands();
+    }
+
+    private void FillDetails(IReadOnlyList<CleanVerdict> verdicts, bool pending)
     {
         TrashRows.Clear();
         SuspiciousRows.Clear();
         var keepSuspicious = _app.Rules.KeepSuspicious;
-        foreach (var item in summary.Verdicts.Where(v => !v.ShouldExtract(keepSuspicious)))
-            TrashRows.Add(DetailRow.From(item, kept: false));
-        foreach (var item in summary.Verdicts.Where(v =>
+        foreach (var item in verdicts.Where(v => !v.ShouldExtract(keepSuspicious)))
+            TrashRows.Add(DetailRow.From(item, kept: false, pending));
+        foreach (var item in verdicts.Where(v =>
                      v.Classification == Classification.Suspicious && v.ShouldExtract(keepSuspicious)))
-            SuspiciousRows.Add(DetailRow.From(item, kept: true));
+            SuspiciousRows.Add(DetailRow.From(item, kept: true, pending));
         OnPropertyChanged(nameof(HasTrash));
         OnPropertyChanged(nameof(HasSuspicious));
+    }
+
+    private static string BuildPreviewSummary(IReadOnlyList<CleanVerdict> verdicts, bool keepSuspicious)
+    {
+        var files = verdicts.Count(v => !v.Entry.IsDirectory);
+        var excluded = verdicts.Count(v => !v.ShouldExtract(keepSuspicious) && !v.Entry.IsDirectory);
+        var suspiciousKept = verdicts.Count(v =>
+            v.Classification == Classification.Suspicious && v.ShouldExtract(keepSuspicious) && !v.Entry.IsDirectory);
+
+        if (excluded == 0 && suspiciousKept == 0)
+            return $"{files} 个文件，未发现需要过滤的内容。";
+
+        var parts = new List<string> { $"{files} 个文件" };
+        if (excluded > 0)
+            parts.Add($"将跳过 {excluded} 个");
+        if (suspiciousKept > 0)
+            parts.Add($"{suspiciousKept} 个可疑文件将保留");
+        return string.Join(" · ", parts);
     }
 
     private static string BuildResultDetail(FilterSummary summary, bool keepSuspicious)
@@ -366,15 +539,48 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return $"{files}{Environment.NewLine}{filtered}{Environment.NewLine}{suspicious}";
     }
 
+    private Progress<WorkflowProgress> CreateProgress()
+    {
+        return new Progress<WorkflowProgress>(p =>
+        {
+            StatusText = p.Message;
+            if (p.Percent is double pct)
+            {
+                IsProgressIndeterminate = false;
+                ProgressPercent = pct;
+            }
+            else if (string.Equals(p.Stage, "extract", StringComparison.Ordinal))
+            {
+                IsProgressIndeterminate = false;
+                ProgressPercent = 0;
+            }
+            else
+            {
+                IsProgressIndeterminate = true;
+                ProgressPercent = 0;
+            }
+        });
+    }
+
+    private void Fail(string message, string headline)
+    {
+        ErrorHeadline = headline;
+        ErrorText = message;
+        State = UiState.Failed;
+        NotifyState();
+    }
+
     private void NotifyState()
     {
         OnPropertyChanged(nameof(IsEmpty));
-        OnPropertyChanged(nameof(IsReady));
-        OnPropertyChanged(nameof(IsRunning));
+        OnPropertyChanged(nameof(IsPreview));
+        OnPropertyChanged(nameof(IsBusy));
         OnPropertyChanged(nameof(IsSuccess));
         OnPropertyChanged(nameof(IsFailed));
         OnPropertyChanged(nameof(IsDetails));
         OnPropertyChanged(nameof(ShowHome));
+        OnPropertyChanged(nameof(IsDefaultOutput));
+        OnPropertyChanged(nameof(ShowRestoreOutput));
         RaiseCommands();
     }
 
@@ -387,6 +593,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         (OpenFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ShowDetailsCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (SettingsCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (BrowseOutputCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ExtractHereCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (UseDefaultOutputCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
@@ -428,13 +637,15 @@ public sealed class DetailRow : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public static DetailRow From(CleanVerdict verdict, bool kept)
+    public static DetailRow From(CleanVerdict verdict, bool kept, bool pending = false)
     {
         var confidence = verdict.Classification == Classification.Trash
-            ? (verdict.Score >= 90 ? "确定垃圾" : "高置信度")
-            : kept
-                ? "置信度不足，已保留"
-                : "按设置已过滤";
+            ? pending
+                ? (verdict.Score >= 90 ? "将跳过" : "高置信度，将跳过")
+                : (verdict.Score >= 90 ? "确定垃圾" : "高置信度")
+            : pending
+                ? kept ? "可疑，将保留" : "按设置将过滤"
+                : kept ? "置信度不足，已保留" : "按设置已过滤";
         return new DetailRow
         {
             Path = verdict.Entry.Path,

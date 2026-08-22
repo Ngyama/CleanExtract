@@ -6,6 +6,8 @@ obj/
 *.userosscache
 *.sln.docstates
 tools/
+dist/
+artifacts/
 TestResults/
 *.log
 .idea/

@@ -103,6 +103,7 @@
             <Setter Property="FontSize" Value="14" />
             <Setter Property="Background" Value="{StaticResource BgBrush}" />
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Icon" Value="pack://application:,,,/icon.png" />
         </Style>
 
         <Style x:Key="PrimaryButton" TargetType="Button">
